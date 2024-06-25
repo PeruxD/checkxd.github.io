@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Balance Checker</title>
+    <link rel="stylesheet" href="assets/css/hack.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.6.2/ethers.umd.min.js"></script>
+    <style>
+        .red {
+            color: red;
+        }
+        .green {
+            color: green;
+        }
+        .flex {
+            display: flex;
+        }
+        .container {
+            padding-bottom: 50px;
+        }
+        .github {
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        .selected {
+            background-color: #f0f0f0; /* Color de fondo para resaltar la selección */
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>What is this?</h2>
+    <p>This is EVM balance checker by increasing private key from 0 to last possible value</p>
+    <hr>
+    <h3>Why did I create this?</h3>
+    <p>Just for fun! There are more private keys than atoms in the universe.
+        if you will find amount you are the most lucky dude in the universe.
+    </p>
+    <h3>Donation</h3>
+    <p>I spend 1 hour of my life to build this app. donations are welcome: 0xa3b6aa7347c1e92fa5d5dd7c0a779baa1359fdc7 </p>
+    <table>
+        <thead>
+        <tr>
+            <th>Private Key</th>
+            <th>Address</th>
+            <th>Balance</th>
+        </tr>
+        </thead>
+        <tbody id="render">
+
+        </tbody>
+    </table>
+    
+    <h3>Current Wallet Number</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>Page</th>
+            <th>Start Index</th>
+            <th>End Index</th>
+        </tr>
+        </thead>
+        <tbody id="walletNumbers">
+
+        </tbody>
+    </table>
+    
+    <p>
+        Enter page number from 1 to 904625697166532776746648320380374280100293470930272690489102837043110636675
+    </p>
+    <div class="flex">
+        <input style="width: 100%" id="page" type="number" value="1" class="form-control" min="1" max="904625697166532776746648320380374280100293470930272690489102837043110636675"/>
+        <button style="width: 320px;" id="generate" class="btn btn-primary btn-ghost">Generate</button>
+        <button style="width: 320px;" id="pause" class="btn btn-secondary btn-ghost hidden">Pause</button>
+        <button style="width: 320px;" id="resume" class="btn btn-success btn-ghost hidden">Resume</button>
+    </div>
+    <div class="github">
+        <a href="#" target="_blank">
+            <svg height="32" aria-hidden="true" viewBox="0 0 16 16" version="1.1" width="32" data-view-component="true" class="octicon octicon-mark-github v-align-middle color-fg-default">
+                <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path>
+            </svg>
+        </a>
+    </div>
+    <button id="selectAllBalances" class="btn btn-primary">Seleccionar Direcciones con Saldo</button>
+    
+    <!-- Área para mostrar las direcciones con saldo verde -->
+    <h3>Direcciones con Saldo Verde</h3>
+    <div id="greenAddresses" class="hidden">
+        <table>
+            <thead>
+                <tr>
+                    <th>Private Key</th>
+                    <th>Address</th>
+                    <th>Balance</th>
+                </tr>
+            </thead>
+            <tbody id="greenAddressesTable">
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                console.log('Text copied to clipboard: ', text);
+            })
+            .catch((error) => {
+                console.error('Failed to copy text to clipboard: ', error);
+            });
+    }
+
+    function playAlarm() {
+        const audio = new Audio('assets/alarm/beep.mp3');
+        audio.play();
+    }
+
+    let isPaused = false;
+    let currentIndex;
+    let currentEnd;
+    let currentPage;
+
+    const checker = async (start, end, perPage = BigInt(128)) => {
+        currentIndex = start;
+        currentEnd = end;
+        const rpcs = [
+            {url:'https://zetachain-evm.blockpi.network:443/v1/rpc/public', name:"ZETACHAIN"},
+            {url:'https://klaytn-pokt.nodies.app/', name:"KLAY"},
+            {url:'https://rpc.zora.energy/', name:"ZORA"},
+            {url:'https://rpc.merlinchain.io', name:"MERLIN"},
+            {url:'https://mainnet.aurora.dev', name:"AURORA"},
+            {url:'https://rpc.zklink.io', name:"ZKLINK NOVA"},
+            {url:'https://rpc.zkfair.io', name:"ZKFAIR"},
+            {url:'https://rpc-endurance.fusionist.io', name:"ENDURACE"},
+            {url:'https://zkevm-rpc.com', name:"MATIC ZKEVM"},
+            {url:'https://mainnet.mode.network', name:"MODE"},
+            {url:'https://andromeda.metis.io/?owner=1088', name:"METIS"},
+            {url:'https://rpc.linea.build', name:"LINEA"},
+            {url:'https://evm-cronos.crypto.org', name:"CRONOS"},
+            {url:'https://mainnet.base.org/', name:"BASE"},
+            {url:'https://linea-mainnet.infura.io/v3/df8205684a6042119bfae1c5f3bc556f', name:"LINEA"}
+        ];
+
+        for (let i = currentIndex; i < currentEnd; i++) {
+            if (isPaused) {
+                currentIndex = i;
+                document.querySelector('#generate').classList.add('hidden');
+                document.querySelector('#pause').classList.add('hidden');
+                document.querySelector('#resume').classList.remove('hidden');
+                return;
+            }
+            document.querySelector('#generate').innerHTML = `Generating ${end - i} more address <span class="loading"></span>`;
+            console.log(i, i.toString(16));
+            let privateKeyHex = i.toString(16).padStart(64, '0');
+            const wallet = new ethers.Wallet(privateKeyHex);
+            const address = wallet.address;
+
+            let tds = '';
+            let hasGreenBalance = false; // Variable para verificar si hay saldo verde
+
+            for (const rpc of rpcs) {
+                const provider = new ethers.JsonRpcProvider(rpc.url);
+                await provider.getBalance(address).then((response) => {
+                    let balance = ethers.formatEther(response);
+                    tds += `<li class="${parseFloat(balance) === 0 ? 'red' : 'green'}">${balance} <span>${rpc.name}</span></li>`;
+                    if (parseFloat(balance) > 0) {
+                        hasGreenBalance = true; // Marcar si hay saldo verde
+                    }
+                });
+            }
+
+            // Agregar fila al renderizado
+            document.querySelector('#render').innerHTML += `
+                <tr>
+                    <td><button class="btn btn-info" onClick="copyToClipboard('${privateKeyHex}')">Copy PK</button></td>
+                    <td>${address}</td>
+                    <td><ul>${tds}</ul></td>
+                </tr>`;
+
+            // Actualizar números de billeteras
+            document.querySelector('#walletNumbers').innerHTML = `
+                <tr>
+                    <td>${String(i / perPage + 1n)}</td>
+                    <td>${String(i)}</td>
+                    <td>${String(i + perPage - 1n)}</td>
+                </tr>`;
+
+            // Si hay saldo verde, agregar a la tabla de direcciones con saldo y reproducir alarma
+            if (hasGreenBalance) {
+                document.querySelector('#greenAddressesTable').innerHTML += `
+                    <tr>
+                        <td><button class="btn btn-info" onClick="copyToClipboard('${privateKeyHex}')">Copy PK</button></td>
+                        <td>${address}</td>
+                        <td><ul>${tds}</ul></td>
+                    </tr>`;
+                playAlarm();
+            }
+
+            document.documentElement.scrollTop = document.documentElement.scrollHeight;
+        }
+
+        // Iniciar la generación para la siguiente página
+        currentPage++;
+        let startNext = (currentPage - 1n) * perPage + 1n;
+        let endNext = startNext + perPage;
+        checker(startNext, endNext);
+
+        // Restaurar botones al finalizar la generación
+        document.querySelector('#generate').innerHTML = 'Generate';
+        document.querySelector('#generate').classList.remove('hidden');
+        document.querySelector('#pause').classList.add('hidden');
+        document.querySelector('#resume').classList.add('hidden');
+    };
+
+    // Evento para el botón Generate
+    document.querySelector('#generate').addEventListener('click', function () {
+        currentPage = BigInt(document.querySelector("#page").value);
+        let perPage = BigInt(128);
+        let start = (currentPage - 1n) * perPage + 1n;
+        let end = start + perPage;
+        isPaused = false;
+        document.querySelector('#generate').classList.add('hidden');
+        document.querySelector('#pause').classList.remove('hidden');
+        document.querySelector('#resume').classList.add('hidden');
+        checker(start, end);
+    });
+
+    // Evento para el botón Pause
+    document.querySelector('#pause').addEventListener('click', function () {
+        isPaused = true;
+    });
+
+    // Evento para el botón Resume
+    document.querySelector('#resume').addEventListener('click', function () {
+        isPaused = false;
+        document.querySelector('#generate').classList.add('hidden');
+        document.querySelector('#pause').classList.remove('hidden');
+        document.querySelector('#resume').classList.add('hidden');
+        checker(currentIndex, currentEnd);
+    });
+
+    // Evento para seleccionar direcciones con saldo verde
+    document.querySelector('#selectAllBalances').addEventListener('click', function () {
+        // Mostrar el área con las direcciones con saldo verde
+        document.getElementById('greenAddresses').classList.remove('hidden');
+    });
+</script>
+
+</body>
+</html>
